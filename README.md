@@ -127,6 +127,18 @@ Genera dos cosas:
 Si volvés a correr `make footprint`, se reescriben los dos. Todos los
 `make floorplan` y `make place` usan el footprint que esté en ese momento.
 
+Para verlo, sin correr ningún paso del flujo:
+
+```bash
+make gui-footprint
+```
+
+Abre `footprint.def` en la GUI de OpenROAD (sección 5): solo el die y los
+pines. Acercándote se ven los nombres de los pines, y haciendo clic en uno el
+Inspector muestra su rectángulo.
+
+![El footprint en la GUI de OpenROAD](docs/gui_footprint.png)
+
 ---
 
 ## 3. El flujo
@@ -260,6 +272,7 @@ Algunas definiciones:
 make gui                         # última corrida, en su último estado
 make gui RUN=pl_centro_...       # otra corrida
 make gui RUN=pl_... STEP=10      # la corrida tal como quedó después del paso 10
+make gui-footprint               # solo el footprint, sin ninguna corrida (sección 2.2)
 ```
 
 `STEP` es el número de dos dígitos del paso (tabla de la sección 3.2). Si ese
@@ -308,6 +321,7 @@ Para cerrar la GUI, cerrá la ventana (o `exit` en la consola Tcl).
 | `make footprint AREA=<µm²>`      | Genera el footprint: die y pines (`ASPECT=` opcional, alto/ancho) |
 | `make floorplan`                 | Floorplan: die, filas, macros, tap/endcap, PDN        |
 | `make place`                     | Floorplan + placement + STA                           |
+| `make gui-footprint`             | Abre el footprint (die y pines) en la GUI de OpenROAD |
 | `make gui`                       | Abre una corrida en la GUI de OpenROAD (`RUN=`, `STEP=`) |
 | `make compare`                   | Compara las corridas de placement (`RUNS=` opcional)  |
 | `make report`                    | Regenera los reportes de la última corrida            |

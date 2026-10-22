@@ -7,6 +7,7 @@
 #   make floorplan                     # floorplan: rows, macros, taps, power grid
 #   make place                         # floorplan + placement + post-placement STA
 #   make place NAME=center             # same, run tagged pl_center_<timestamp>
+#   make gui-footprint                 # open the footprint (die and pins) in the OpenROAD GUI
 #   make gui                           # open the latest run in the OpenROAD GUI
 #   make gui RUN=<run> STEP=10         # open a given run, as it was after a given step
 #   make compare                       # compare every placement run
@@ -40,7 +41,7 @@ FLOW = $(RUNSH) librelane --design-dir $(DESIGN_DIR) --run-tag $(TAG) \
          --with-initial-state $(STATE) --from OpenROAD.Floorplan --to $(2) $(CONFIG) && \
        $(RUNSH) python3 scripts/report.py $(DESIGN_DIR)/runs/$(TAG)
 
-.PHONY: import-tp1 footprint floorplan place gui compare report shell clean
+.PHONY: import-tp1 footprint floorplan place gui-footprint gui compare report shell clean
 
 import-tp1:
 	@[ -n "$(TP1_RUN)" ] || { echo "error: give the TP1 run directory: make import-tp1 TP1_RUN=<dir>"; exit 1; }
@@ -67,11 +68,20 @@ floorplan: $(STATE) $(FOOTPRINT)
 place: $(STATE) $(FOOTPRINT)
 	$(call FLOW,pl,OpenROAD.STAMidPNR-1)
 
-gui:
+# Checks there is a display and lets the container (same uid) use it.
+define X11
 	@[ -n "$$DISPLAY" ] || { echo "error: DISPLAY is not set: run this from a graphical session"; exit 1; }
-	@[ -n "$(GUI_RUN)" ] || { echo "error: no runs yet: run make floorplan or make place"; exit 1; }
 	@xhost +SI:localuser:$$(id -un) >/dev/null 2>&1 || \
 	  echo "warning: xhost failed; if the GUI does not open, install x11-xserver-utils"
+endef
+
+gui-footprint: $(FOOTPRINT)
+	$(X11)
+	$(RUNSH) python3 scripts/gui_footprint.py $(DESIGN)
+
+gui:
+	@[ -n "$(GUI_RUN)" ] || { echo "error: no runs yet: run make floorplan or make place"; exit 1; }
+	$(X11)
 	$(RUNSH) librelane --design-dir $(DESIGN_DIR) --run-tag $(GUI_RUN) --flow OpenInOpenROAD \
 	  $(if $(STEP),--with-initial-state $(firstword $(wildcard $(DESIGN_DIR)/runs/$(GUI_RUN)/$(STEP)-*/state_out.json))) \
 	  $(CONFIG)

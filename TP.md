@@ -110,6 +110,12 @@ bordes, en el orden en que están declarados en el netlist (sección 2.2 del
    make footprint AREA=<área del die en µm²> ASPECT=1
    ```
 
+3. Abrilo en la GUI (P2):
+
+   ```bash
+   make gui-footprint
+   ```
+
 **Qué se debe lograr:** un footprint dimensionado con criterio, y entender
 qué contiene.
 
@@ -120,12 +126,21 @@ qué contiene.
   core hay un margen de unos 10 µm). Generá el footprint con ese valor. ¿Qué
   dimensiones tiene el die? Más adelante (P7) vas a comparar la utilización
   que esperabas con la que resultó.
-- **P2.** Abrí `designs/ibex/footprint.def`. ¿Cuántos pines tiene y cuántos
-  hay en cada borde? ¿En qué capa de metal están los de cada borde y por
-  qué tiene sentido esa elección (pensá en la dirección preferida de cada
-  capa)? ¿En qué bordes quedaron la interfaz de instrucciones (`instr_*`) y
-  la de datos (`data_*`)? ¿Qué variable de `config.json` le indica a
-  LibreLane que use este archivo?
+- **P2.** Abrí el footprint en la GUI y relacioná lo que ves con el archivo
+  `designs/ibex/footprint.def`. Incluí una captura del footprint completo.
+  - Elegí dos pines del DEF, uno de un borde horizontal (por ejemplo
+    `clk_i`) y uno de un borde vertical. Ubicalos en la GUI (podés acercarte
+    con `gui::zoom_to x0 y0 x1 y1`, en µm, en la consola Tcl) y hacé clic en
+    cada uno. Compará el rectángulo (`BBox`) que muestra el Inspector con
+    las líneas `LAYER` y `PLACED` del DEF: ¿cómo se obtiene uno a partir de
+    las otras? ¿En qué unidades está el DEF?
+  - Apagá y prendé `met2` y `met3` en `Layers`: ¿qué bordes tienen pines en
+    cada capa? ¿Por qué tiene sentido esa elección (pensá en la dirección
+    preferida de cada capa)?
+  - Medí con la regla (`K`) la separación entre dos pines vecinos 
+  - ¿En qué bordes quedaron la interfaz de instrucciones (`instr_*`) y la de
+    datos (`data_*`)?
+  - ¿Qué variable de `config.json` le indica a LibreLane que use este archivo?
 
 ---
 
