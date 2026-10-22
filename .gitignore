@@ -1,0 +1,5 @@
+designs/*/runs/
+designs/*/tp1/
+__pycache__/
+# Teacher-only material (solutions): never publish.
+docente/

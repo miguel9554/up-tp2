@@ -1,0 +1,69 @@
+{
+    "meta": {
+        "version": 3,
+        "flow": "Classic",
+        "substituting_steps": {
+            "+OpenROAD.DetailedPlacement": "OpenROAD.STAMidPNR"
+        }
+    },
+    "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+    "DESIGN_NAME": "ibex_top",
+    "VERILOG_FILES": [
+        "dir::tp1/ibex_top.nl.v"
+    ],
+    "CLOCK_PORT": "clk_i",
+    "CLOCK_PERIOD": 100,
+    "PNR_SDC_FILE": "dir::constraints.sdc",
+    "SIGNOFF_SDC_FILE": "dir::constraints.sdc",
+    "MACROS": {
+        "sky130_sram_1kbyte_1rw1r_32x256_8": {
+            "gds": [
+                "pdk_dir::libs.ref/sky130_sram_macros/gds/sky130_sram_1kbyte_1rw1r_32x256_8.gds"
+            ],
+            "lef": [
+                "pdk_dir::libs.ref/sky130_sram_macros/lef/sky130_sram_1kbyte_1rw1r_32x256_8.lef"
+            ],
+            "vh": [
+                "pdk_dir::libs.ref/sky130_sram_macros/verilog/sky130_sram_1kbyte_1rw1r_32x256_8.v"
+            ],
+            "lib": {
+                "*": [
+                    "pdk_dir::libs.ref/sky130_sram_macros/lib/sky130_sram_1kbyte_1rw1r_32x256_8_TT_1p8V_25C.lib"
+                ]
+            },
+            "instances": {
+                "gen_rams.gen_rams_inner[0].gen_noscramble_rams.tag_bank.gen_row[0].gen_col[0].u_sram": {
+                    "location": null,
+                    "orientation": "N"
+                },
+                "gen_rams.gen_rams_inner[0].gen_noscramble_rams.data_bank.gen_row[0].gen_col[0].u_sram": {
+                    "location": null,
+                    "orientation": "N"
+                },
+                "gen_rams.gen_rams_inner[0].gen_noscramble_rams.data_bank.gen_row[0].gen_col[1].u_sram": {
+                    "location": null,
+                    "orientation": "N"
+                },
+                "gen_rams.gen_rams_inner[1].gen_noscramble_rams.tag_bank.gen_row[0].gen_col[0].u_sram": {
+                    "location": null,
+                    "orientation": "N"
+                },
+                "gen_rams.gen_rams_inner[1].gen_noscramble_rams.data_bank.gen_row[0].gen_col[0].u_sram": {
+                    "location": null,
+                    "orientation": "N"
+                },
+                "gen_rams.gen_rams_inner[1].gen_noscramble_rams.data_bank.gen_row[0].gen_col[1].u_sram": {
+                    "location": null,
+                    "orientation": "N"
+                }
+            }
+        }
+    },
+    "MACRO_PLACEMENT_CFG": "dir::macro_placement.cfg",
+    "PDN_MACRO_CONNECTIONS": [
+        ".*u_sram VPWR VGND vccd1 vssd1"
+    ],
+    "FP_SIZING": "relative",
+    "FP_CORE_UTIL": 50,
+    "FP_ASPECT_RATIO": 1
+}
