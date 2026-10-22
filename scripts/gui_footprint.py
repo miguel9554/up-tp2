@@ -13,10 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-import ciel
-from librelane.common import get_pdk_hash
-
-PDK = "sky130A"
+from pdk import pdk_dir
 
 
 def main():
@@ -28,9 +25,7 @@ def main():
         sys.exit(f"error: {footprint} not found: run make footprint first")
     scl = json.loads((design_dir / "config.json").read_text())["STD_CELL_LIBRARY"]
 
-    home = ciel.get_ciel_home(os.environ.get("PDK_ROOT"))
-    pdk_dir = Path(home) / "ciel" / "sky130" / "versions" / get_pdk_hash(PDK) / PDK
-    tech_lef = pdk_dir / "libs.ref" / scl / "techlef" / f"{scl}__nom.tlef"
+    tech_lef = pdk_dir() / "libs.ref" / scl / "techlef" / f"{scl}__nom.tlef"
     if not tech_lef.is_file():
         sys.exit(f"error: {tech_lef} not found: is the PDK installed (make pdk in TP1)?")
 

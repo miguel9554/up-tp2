@@ -35,9 +35,11 @@ LAST_RUN = $(notdir $(patsubst %/resolved.json,%,$(lastword \
              $(shell ls -1tr $(DESIGN_DIR)/runs/*/resolved.json 2>/dev/null))))
 GUI_RUN  = $(or $(RUN),$(LAST_RUN))
 
-# $(call FLOW,<tag prefix>,<last step>)
+# $(call FLOW,<tag prefix>,<last step>): checks the macro placement first,
+# since LibreLane does not until signoff.
 TAG  = $(1)$(if $(NAME),_$(NAME))_$(STAMP)
-FLOW = $(RUNSH) librelane --design-dir $(DESIGN_DIR) --run-tag $(TAG) \
+FLOW = $(RUNSH) python3 scripts/check_macros.py $(DESIGN) && \
+       $(RUNSH) librelane --design-dir $(DESIGN_DIR) --run-tag $(TAG) \
          --with-initial-state $(STATE) --from OpenROAD.Floorplan --to $(2) $(CONFIG) && \
        $(RUNSH) python3 scripts/report.py $(DESIGN_DIR)/runs/$(TAG)
 
@@ -68,12 +70,20 @@ floorplan: $(STATE) $(FOOTPRINT)
 place: $(STATE) $(FOOTPRINT)
 	$(call FLOW,pl,OpenROAD.STAMidPNR-1)
 
-# Checks there is a display and lets the container (same uid) use it.
+# Checks there is a display and lets the container (same uid) use it through
+# the X11 socket. With GUI_DISPLAY (X server over TCP, see
+# docs/gui_windows_mac.md) the X server is authorized by hand instead.
+ifeq ($(GUI_DISPLAY),)
 define X11
 	@[ -n "$$DISPLAY" ] || { echo "error: DISPLAY is not set: run this from a graphical session"; exit 1; }
 	@xhost +SI:localuser:$$(id -un) >/dev/null 2>&1 || \
 	  echo "warning: xhost failed; if the GUI does not open, install x11-xserver-utils"
 endef
+else
+define X11
+	@echo "Using the X server at GUI_DISPLAY=$(GUI_DISPLAY)"
+endef
+endif
 
 gui-footprint: $(FOOTPRINT)
 	$(X11)

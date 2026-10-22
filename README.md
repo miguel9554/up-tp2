@@ -62,6 +62,10 @@ which xhost            # si no existe: sudo apt install x11-xserver-utils
 (`xhost +SI:localuser:$USER`) y comparte el socket de X11 con el contenedor
 (ver `run.sh`).
 
+**Windows y macOS:** ver [La GUI en Windows y macOS](docs/gui_windows_mac.md).
+En Windows se usa WSL2, que trae su propio servidor X. En macOS hace falta
+XQuartz y definir `GUI_DISPLAY=host.docker.internal:0`.
+
 ---
 
 ## 2. Netlist y footprint
@@ -152,7 +156,7 @@ designs/ibex/
 ├── config.json           configuración de LibreLane (ver abajo)
 ├── footprint.def         el footprint: die y pines (sección 2.2)
 ├── constraints.sdc       restricciones de timing (las del TP1 + clock ideal)
-├── macro_placement.cfg   ubicación de las macros de SRAM: la completás vos
+├── macro_placement.cfg   ubicación de las macros de SRAM (ya viene completa)
 ├── tp1/                  lo importado del TP1 (sección 2.1)
 └── runs/                 las corridas
 ```
@@ -190,7 +194,15 @@ Cada corrida crea un directorio nuevo en `designs/ibex/runs/`:
 make place NAME=centro     # runs/pl_centro_<fecha>_<hora>
 ```
 
-Los dos arrancan del netlist importado y corren estos pasos (cada uno es un
+Antes de llamar a LibreLane, los dos corren `scripts/check_macros.py`, que
+verifica `macro_placement.cfg`: que estén las 6 macros, que cada una esté
+dentro del core y que no se superpongan. LibreLane no lo verifica hasta el
+signoff: una superposición hace fallar el placement global con un error
+poco claro (`GPL-0305 RePlAce diverged`), y una macro fuera del die pasa
+desapercibida. Si algo está mal, el chequeo dice qué macro y por qué, y no
+se corre el flujo.
+
+Después arrancan del netlist importado y corren estos pasos (cada uno es un
 subdirectorio numerado de la corrida):
 
 | Paso | Directorio | Qué hace |
@@ -297,7 +309,7 @@ Lo básico:
 | Mostrar / ocultar capas y objetos | panel **Display Control**: `Layers` (capas de metal), `Instances` (celdas estándar, macros, tap cells...), `Rows`, `Nets` |
 | Mapas de calor | Display Control → **Heat Maps**: `Placement Density`, `Routing Congestion`, `Estimated Congestion (RUDY)`, `Pin Density`, ... |
 | Caminos críticos | pestaña **Timing Report** → `Update`: lista los peores caminos; al seleccionar uno se dibuja sobre el layout |
-| Módulos del RTL | pestaña **Hierarchy Browser**: muestra dónde quedaron las celdas de cada módulo (`if_stage`, `id_stage`, ...) |
+| Módulos del RTL | el **Hierarchy Browser** aparece plano, porque el netlist del TP1 se sintetizó aplanado. En la consola Tcl, `select -type Net -name "*register_file_i*" -highlight 0` resalta los nets de un módulo; `gui::clear_highlights -1` y `gui::clear_selections` lo borran (ver P11 del TP) |
 | Guardar una imagen | en la consola Tcl de abajo: `save_image <archivo>.png` (queda en la raíz del proyecto) |
 
 La consola Tcl (abajo) acepta cualquier comando de OpenROAD, por ejemplo
@@ -338,10 +350,13 @@ y `place`.
 | `the TP1 netlist was not imported yet`            | `make import-tp1 TP1_RUN=<corrida del TP1>` |
 | `there is no footprint yet`                       | `make footprint AREA=<µm²> ASPECT=<alto/ancho>` |
 | `has no pre-PnR STA step`                         | Elegí otra corrida, o en el TP1: `make sta DESIGN=ibex` |
-| `[PDN-0235] Design has unplaced macros`           | Faltan macros en `macro_placement.cfg` (o están comentadas) |
+| `illegal macro placement: ... overlaps ...`       | Dos macros se superponen: corregí `x`/`y` en `macro_placement.cfg` |
+| `illegal macro placement: ... not inside the core` | Una macro se sale del core: corregí su posición, o el footprint es demasiado chico |
+| `illegal macro placement: ... has no location`    | Falta (o está comentada) la línea de esa macro en `macro_placement.cfg` |
 | `Declared macros not instantiated in design`      | Hay un nombre de instancia mal escrito en `macro_placement.cfg` |
 | `DISPLAY is not set`                              | Corré `make gui` desde una terminal del escritorio, no por SSH |
 | `could not connect to display` / la GUI no abre   | `sudo apt install x11-xserver-utils` y volvé a correr `make gui` |
+| La GUI no abre en Windows o macOS                 | Ver [docs/gui_windows_mac.md](docs/gui_windows_mac.md) |
 | Un paso falla                                     | Leé el final de `<corrida>/<paso>/*.log` |
 
 ### Más información

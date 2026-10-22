@@ -9,7 +9,10 @@
 # This directory is mounted at /work (the working directory), so use
 # paths relative to it. If TP1_RUN is set, that directory (a TP1 run) is
 # mounted read-only at /tp1_run. If DISPLAY is set, the X11 socket is shared
-# so GUIs (OpenROAD, KLayout) open on the host's screen.
+# so GUIs (OpenROAD, KLayout) open on the host's screen. If GUI_DISPLAY is set
+# (e.g. host.docker.internal:0 for XQuartz on macOS), it is used as the
+# container's DISPLAY instead: an X server reached over TCP, no socket shared.
+# See docs/gui_windows_mac.md.
 set -euo pipefail
 
 LIBRELANE_TAG="${LIBRELANE_TAG:-3.0.14}"
@@ -26,7 +29,9 @@ EXTRA=()
 if [ -n "${TP1_RUN:-}" ]; then
   EXTRA+=(-v "$(cd "$TP1_RUN" && pwd):/tp1_run:ro")
 fi
-if [ -n "${DISPLAY:-}" ] && [ -d /tmp/.X11-unix ]; then
+if [ -n "${GUI_DISPLAY:-}" ]; then
+  EXTRA+=(-e "DISPLAY=$GUI_DISPLAY" -e QT_X11_NO_MITSHM=1)
+elif [ -n "${DISPLAY:-}" ] && [ -d /tmp/.X11-unix ]; then
   # The container runs with the host uid, so `xhost +SI:localuser:$USER`
   # (done by `make gui`) is enough to authorize it on the X server.
   EXTRA+=(-e DISPLAY -e QT_X11_NO_MITSHM=1 -v /tmp/.X11-unix:/tmp/.X11-unix:ro)

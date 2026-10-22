@@ -15,7 +15,7 @@ Al terminar este trabajo práctico deberías poder:
 
 1. Definir el **footprint** de un bloque (área y pines) y dimensionar su
    **floorplan**: die, core, filas de celdas estándar y utilización.
-2. **Ubicar macros** teniendo en cuenta sus pines, su conectividad con la
+2. Analizar la **ubicación de macros**: sus pines, su conectividad con la
    lógica y el espacio que dejan para las celdas y los cables.
 3. Explicar para qué sirven las **celdas físicas** (tap, endcap) y cómo se
    arma la **red de alimentación** (PDN).
@@ -46,9 +46,9 @@ Al terminar este trabajo práctico deberías poder:
 - `runs/compare.md` se **sobrescribe** cada vez que corrés `make compare`.
   Si lo vas a usar en el informe, copialo con otro nombre.
 - Cuando un ejercicio te pida modificar `config.json` o
-  `macro_placement.cfg`, **volvé a tu versión de referencia** (la del
-  ejercicio 1) antes de pasar al siguiente. Usá `git diff` para controlarlo,
-  y guardá tu `macro_placement.cfg` de referencia con otro nombre.
+  `macro_placement.cfg`, **volvé a la versión original** antes de pasar al
+  siguiente. Usá `git diff` para controlarlo: la única diferencia que tiene
+  que quedar es el `DIE_AREA` que escribe `make footprint`.
 - El timing es todavía **pre-CTS**: el clock es ideal. Y los cables son una
   **estimación** a partir del placement, no los cables ruteados.
 - Las imágenes de la GUI se guardan con `save_image <archivo>.png` en su
@@ -65,8 +65,7 @@ Un **informe en PDF** que contenga:
   con datos no se considera completa.
 - Las **capturas de la GUI** pedidas, con una breve descripción de qué se ve
   en cada una.
-- El comando con el que generaste tu footprint (`AREA` y `ASPECT`) y tu
-  `macro_placement.cfg` final.
+- El comando con el que generaste tu footprint (`AREA` y `ASPECT`).
 
 Las preguntas están numeradas (**P1**, **P2**, ...): usá esa numeración en el
 informe.
@@ -124,7 +123,8 @@ qué contiene.
   de die necesaria para que las instancias ocupen alrededor del **50 %**
   del core, con un aspect ratio de 1 (tené en cuenta que entre el die y el
   core hay un margen de unos 10 µm). Generá el footprint con ese valor. ¿Qué
-  dimensiones tiene el die? Más adelante (P7) vas a comparar la utilización
+  dimensiones tiene el die? (La ubicación de las macros que trae el
+  repositorio necesita un die de al menos ~1625 µm de lado.) Más adelante (P7) vas a comparar la utilización
   que esperabas con la que resultó.
 - **P2.** Abrí el footprint en la GUI y relacioná lo que ves con el archivo
   `designs/ibex/footprint.def`. Incluí una captura del footprint completo.
@@ -146,19 +146,19 @@ qué contiene.
 
 ## Ejercicio 1: Floorplan
 
-### 1.1 Primer intento
+### 1.1 Correr el floorplan
 
 **Qué hacer:**
 
 1. Leé `designs/ibex/config.json`, `constraints.sdc` y
-   `macro_placement.cfg`.
-2. Corré el floorplan:
+   `macro_placement.cfg`. Este último ya trae la ubicación de las 6 macros
+   de SRAM: no hay que cambiarla.
+2. Corré el floorplan y abrilo en la GUI:
 
    ```bash
    make floorplan
+   make gui
    ```
-
-   **Va a fallar.** Es esperable.
 
 **Qué se debe lograr:** entender qué datos necesita el floorplan y por qué
 las macros se ubican antes que todo lo demás.
@@ -169,20 +169,16 @@ las macros se ubican antes que todo lo demás.
   buscá en el netlist (`designs/ibex/tp1/ibex_top.nl.v`) la celda de clock
   gating (`dlclkp`): ¿cuántos flip-flops maneja su salida? ¿Qué slew tendría
   ese net sin árbol de clock?
-- **P4.** `make floorplan` falla con `[PDN-0235] Design has unplaced macros`.
-  ¿Por qué la red de alimentación necesita que las macros ya estén fijas?
-  ¿Y por qué, en general, las macros se ubican **antes** que las celdas
-  estándar?
+- **P4.** ¿Por qué la red de alimentación necesita que las macros ya estén
+  fijas? ¿Y por qué, en general, las macros se ubican **antes** que las
+  celdas estándar?
 
-### 1.2 Ubicar las macros de SRAM
+### 1.2 Las macros de SRAM
 
-**Qué hacer:** decidir dónde va cada una de las 6 macros y escribirlo en
-`macro_placement.cfg`. El archivo ya tiene los nombres de las instancias;
-tenés que completar `x`, `y` (esquina inferior izquierda de la macro, en µm,
-respecto de la esquina inferior izquierda del die) y la orientación, y
-descomentar las líneas.
-
-Las orientaciones posibles (las de DEF) son:
+Cada línea de `macro_placement.cfg` tiene el nombre de la instancia, `x` e
+`y` (esquina inferior izquierda de la macro, en µm, respecto de la esquina
+inferior izquierda del die) y la orientación. Las orientaciones posibles (las
+de DEF) son:
 
 | Orientación | Transformación respecto de la macro original |
 | :---------- | :------------------------------------------- |
@@ -194,8 +190,7 @@ Las orientaciones posibles (las de DEF) son:
 La coordenada `x y` es siempre la esquina inferior izquierda del rectángulo
 que ocupa la macro **ya orientada**.
 
-**Qué se debe lograr:** una ubicación de macros justificada, que deje la
-lógica cerca de los pines que usa.
+**Qué se debe lograr:** entender por qué las macros están donde están.
 
 - **P5.** La macro es `sky130_sram_1kbyte_1rw1r_32x256_8` y su LEF está en
   `$PDK/libs.ref/sky130_sram_macros/lef/` (sección 4 del `README.md` del
@@ -208,21 +203,18 @@ lógica cerca de los pines que usa.
   - ¿En qué **bordes** de la macro están los pines de datos, dirección y
     control del puerto usado (`din0`, `dout0`, `addr0`, `csb0`, `web0`,
     `wmask0`, `clk0`)? Sacalo del LEF (las coordenadas `RECT` de cada
-    `PIN`). Cuando tengas tu primer floorplan funcionando (P6), verificalo
-    en la GUI: hacé zoom sobre una macro y seleccioná algunos pines.
+    `PIN`) y verificalo en la GUI: hacé zoom sobre una macro y seleccioná
+    algunos pines.
   - ¿Y los pines de alimentación (`vccd1`, `vssd1`)? ¿En qué capa de metal
     están?
-- **P6.** Proponé una ubicación para las 6 macros. Tiene que cumplir:
-  - Todas dentro del **core** (no del die: entre ambos hay un margen).
-  - Sin solaparse, y con un **canal** entre macros vecinas para que pasen
-    cables y la PDN. Justificá el ancho que elegiste.
-  - Los pines del puerto usado **mirando hacia la zona de celdas
-    estándar**, eligiendo la orientación de cada macro.
-  - Sin tapar los **pines del footprint**: las celdas que se conectan a
-    cada pin del borde tienen que poder ubicarse cerca de él.
-
-  Corré `make floorplan` hasta que funcione. Incluí tu `macro_placement.cfg`,
-  una captura de la GUI y una explicación de la orientación de cada macro.
+- **P6.** Analizá la ubicación de las macros. Incluí una captura de la GUI
+  con las 6 macros.
+  - ¿Cuánto mide el **canal** entre macros vecinas, y entre las macros y el
+    borde del core? ¿Para qué hace falta dejar ese espacio?
+  - La fila de abajo está en `S` y la de arriba en `N`. ¿Hacia dónde quedan
+    mirando los pines del puerto usado en cada fila? ¿Por qué tiene sentido?
+  - Mirando los pines del footprint (P2), ¿qué macro queda sobre la
+    interfaz de instrucciones? ¿Qué consecuencia esperás que tenga?
 
 ### 1.3 Analizar el floorplan
 
@@ -265,6 +257,15 @@ ubicar las celdas.
     horizontales. ¿En qué capa de metal está cada uno? ¿Cada cuántos µm se
     repiten los straps?
   - ¿Pasan straps por encima de las macros? ¿En qué capa y por qué en esa?
+  - ¿Por dónde **entran VPWR y VGND** al bloque? Buscá los pines `VPWR` y
+    `VGND` en la sección `PINS` del DEF del paso 10
+    (`<corrida>/10-openroad-generatepdn/ibex_top.def`), y en la GUI hacé
+    clic sobre un strap. ¿Qué forma y en qué capas están esos pines? ¿Por
+    qué no hay un pin de alimentación en el borde, como los de señal, ni
+    aparecen en `footprint.def`? ¿Cómo se conectaría el chip completo a la
+    alimentación de este bloque?
+  - Seguí el camino de VPWR desde el pin del bloque hasta el pin `VPWR` de
+    una celda estándar: ¿qué capas y qué vías atraviesa?
   - Los pines de alimentación de la SRAM se llaman `vccd1`/`vssd1`, y los de
     las celdas estándar `VPWR`/`VGND`. ¿Qué hace la variable
     `PDN_MACRO_CONNECTIONS` de `config.json`? Hacé una prueba: borrala, corré
@@ -314,9 +315,44 @@ cada número con lo que se ve en el layout.
     influyen, junto con los pines de las macros, en dónde se agruparon las
     celdas? Elegí un bus (por ejemplo `instr_addr_o`) y mirá dónde quedaron
     las celdas conectadas a sus pines.
-  - Con el **Hierarchy Browser**, ubicá dónde quedaron al menos tres módulos
-    del CPU (por ejemplo el banco de registros, la caché `icache` y la ALU).
-    ¿Tiene sentido su ubicación respecto de las macros y de los pines?
+  - Ubicá dónde quedaron al menos tres módulos del CPU: el banco de
+    registros, la etapa de fetch (que incluye la icache) y el bloque de
+    ejecución (que incluye la ALU). ¿Tiene sentido su ubicación respecto de
+    las macros y de los pines?
+
+    El **Hierarchy Browser** de la GUI no sirve para esto: aparece plano.
+    La jerarquía se perdió en la **síntesis del TP1**: LibreLane sintetiza
+    por defecto con `SYNTH_HIERARCHY_MODE = flatten`, y Yosys aplana todo
+    el diseño en un solo módulo (`ibex_top`) y renombra casi todas las
+    celdas (`_25062_`, ...). Solo las 6 SRAM y el clock gate conservan su
+    nombre jerárquico. Los que sí conservan el nombre del módulo son
+    muchos **nets**, por ejemplo
+    `gen_regfile_ff.register_file_i.g_plain_rf.g_rf_flops[10].rf_reg_q[0]`.
+
+    Para ver dónde quedó un módulo, seleccioná y resaltá sus nets desde la
+    consola Tcl de la GUI. `-name` es una expresión con comodines, y cada
+    número de `-highlight` (de 0 a 7) es un grupo con un color distinto:
+
+    ```tcl
+    select -type Net -name "*register_file_i*" -highlight 0   ;# banco de registros
+    select -type Net -name "*if_stage_i*"      -highlight 1   ;# fetch + icache
+    select -type Net -name "*ex_block_i*"      -highlight 2   ;# ALU y multiplicador
+    ```
+
+    Cada comando imprime cuántos nets seleccionó. El Inspector permite
+    recorrerlos uno por uno (`Next`/`Previous`). Otros prefijos útiles:
+    `cs_registers_i` (CSRs), `id_stage_i` (decodificación) y
+    `load_store_unit_i`. Para borrar el resaltado y la selección:
+
+    ```tcl
+    gui::clear_highlights 0      ;# borra el resaltado del grupo 0
+    gui::clear_highlights -1     ;# borra el resaltado de todos los grupos
+    gui::clear_selections        ;# vacía la selección (el Inspector)
+    ```
+
+    Tené en cuenta que así ves los cables con nombre del módulo (en
+    general, sus registros y señales de interfaz), no todas sus celdas: es
+    una ubicación aproximada.
 - **P12.** Placement global y detallado. Abrí la misma corrida con
   `STEP=13` y con `STEP=19` y hacé zoom sobre una misma zona chica.
   - ¿Qué diferencia ves entre las celdas después del placement global y
@@ -370,7 +406,11 @@ estimados con lo que viste en el TP1.
 
 ---
 
-## Ejercicio 3: Experimentos de floorplan
+## Ejercicio 3 (opcional): Experimentos de floorplan
+
+Este ejercicio es **opcional**: no hace falta para aprobar el TP. Si lo
+hacés, incluilo en el informe con el mismo nivel de detalle que los
+anteriores.
 
 Cada experimento cambia **una sola cosa** respecto de tu corrida de referencia
 (`NAME=ref`); el footprint es siempre el mismo. Corré cada uno con un
