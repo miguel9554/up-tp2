@@ -13,8 +13,8 @@ del TP1: acá no se sintetiza.
 
 Al terminar este trabajo práctico deberías poder:
 
-1. Dimensionar un **floorplan**: die, core, filas de celdas estándar y
-   utilización.
+1. Definir el **footprint** de un bloque (área y pines) y dimensionar su
+   **floorplan**: die, core, filas de celdas estándar y utilización.
 2. **Ubicar macros** teniendo en cuenta sus pines, su conectividad con la
    lógica y el espacio que dejan para las celdas y los cables.
 3. Explicar para qué sirven las **celdas físicas** (tap, endcap) y cómo se
@@ -65,7 +65,8 @@ Un **informe en PDF** que contenga:
   con datos no se considera completa.
 - Las **capturas de la GUI** pedidas, con una breve descripción de qué se ve
   en cada una.
-- Tu `macro_placement.cfg` final.
+- El comando con el que generaste tu footprint (`AREA` y `ASPECT`) y tu
+  `macro_placement.cfg` final.
 
 Las preguntas están numeradas (**P1**, **P2**, ...): usá esa numeración en el
 informe.
@@ -82,21 +83,61 @@ informe.
 
 ---
 
-## Ejercicio 1: Floorplan
+## Ejercicio 0: Footprint
 
-### 1.1 Importar el netlist y primer intento
+El **footprint** de un bloque es el rectángulo que va a ocupar en el chip y la
+ubicación de sus pines. No lo decide quien hace el PnR del bloque: viene dado
+de antes (por quien arma el chip completo, que tiene que encajar todos los
+bloques y conectarlos entre sí). El floorplan **parte** del footprint y del
+netlist sintetizado.
+
+Acá el footprint lo generás vos con un script, a partir de un área y una
+relación de aspecto. Los pines se reparten uniformemente sobre los cuatro
+bordes, en el orden en que están declarados en el netlist (sección 2.2 del
+`README.md`).
 
 **Qué hacer:**
 
 1. Importá el netlist del TP1:
 
    ```bash
-   make import-tp1 TP1=../up-tp1
+   make import-tp1 TP1_RUN=../up-tp1/designs/ibex/runs/<corrida hd del TP1>
    ```
 
-2. Leé `designs/ibex/config.json`, `constraints.sdc` y
+2. Calculá el área del die (P1) y generá el footprint:
+
+   ```bash
+   make footprint AREA=<área del die en µm²> ASPECT=1
+   ```
+
+**Qué se debe lograr:** un footprint dimensionado con criterio, y entender
+qué contiene.
+
+- **P1.** ¿Qué corrida del TP1 importaste? Usando el área de celdas estándar
+  y de macros del TP1 (`designs/ibex/tp1/reports/area.md`), calculá el área
+  de die necesaria para que las instancias ocupen alrededor del **50 %**
+  del core, con un aspect ratio de 1 (tené en cuenta que entre el die y el
+  core hay un margen de unos 10 µm). Generá el footprint con ese valor. ¿Qué
+  dimensiones tiene el die? Más adelante (P7) vas a comparar la utilización
+  que esperabas con la que resultó.
+- **P2.** Abrí `designs/ibex/footprint.def`. ¿Cuántos pines tiene y cuántos
+  hay en cada borde? ¿En qué capa de metal están los de cada borde y por
+  qué tiene sentido esa elección (pensá en la dirección preferida de cada
+  capa)? ¿En qué bordes quedaron la interfaz de instrucciones (`instr_*`) y
+  la de datos (`data_*`)? ¿Qué variable de `config.json` le indica a
+  LibreLane que use este archivo?
+
+---
+
+## Ejercicio 1: Floorplan
+
+### 1.1 Primer intento
+
+**Qué hacer:**
+
+1. Leé `designs/ibex/config.json`, `constraints.sdc` y
    `macro_placement.cfg`.
-3. Corré el floorplan:
+2. Corré el floorplan:
 
    ```bash
    make floorplan
@@ -107,19 +148,13 @@ informe.
 **Qué se debe lograr:** entender qué datos necesita el floorplan y por qué
 las macros se ubican antes que todo lo demás.
 
-- **P1.** ¿Qué corrida del TP1 importaste? Con `FP_SIZING = relative`, el
-  tamaño del die sale de `FP_CORE_UTIL` y `FP_ASPECT_RATIO`. Usando el área
-  de celdas estándar y de macros del TP1 (`designs/ibex/tp1/reports/area.md`),
-  calculá el área de core y las dimensiones que esperás para una utilización
-  del 50 % y un aspect ratio de 1. Más adelante (P6) vas a compararlo con lo
-  que hizo la herramienta.
-- **P2.** `constraints.sdc` agrega `unset_propagated_clock [all_clocks]`
+- **P3.** `constraints.sdc` agrega `unset_propagated_clock [all_clocks]`
   respecto del TP1. Explicá la diferencia entre un clock **ideal** y uno
   **propagado**. ¿Por qué en esta etapa conviene el ideal? Para justificarlo,
   buscá en el netlist (`designs/ibex/tp1/ibex_top.nl.v`) la celda de clock
   gating (`dlclkp`): ¿cuántos flip-flops maneja su salida? ¿Qué slew tendría
   ese net sin árbol de clock?
-- **P3.** `make floorplan` falla con `[PDN-0235] Design has unplaced macros`.
+- **P4.** `make floorplan` falla con `[PDN-0235] Design has unplaced macros`.
   ¿Por qué la red de alimentación necesita que las macros ya estén fijas?
   ¿Y por qué, en general, las macros se ubican **antes** que las celdas
   estándar?
@@ -147,7 +182,7 @@ que ocupa la macro **ya orientada**.
 **Qué se debe lograr:** una ubicación de macros justificada, que deje la
 lógica cerca de los pines que usa.
 
-- **P4.** La macro es `sky130_sram_1kbyte_1rw1r_32x256_8` y su LEF está en
+- **P5.** La macro es `sky130_sram_1kbyte_1rw1r_32x256_8` y su LEF está en
   `$PDK/libs.ref/sky130_sram_macros/lef/` (sección 4 del `README.md` del
   TP1).
   - ¿Cuáles son sus dimensiones? ¿Cuántas macros entran a lo ancho del core
@@ -158,16 +193,18 @@ lógica cerca de los pines que usa.
   - ¿En qué **bordes** de la macro están los pines de datos, dirección y
     control del puerto usado (`din0`, `dout0`, `addr0`, `csb0`, `web0`,
     `wmask0`, `clk0`)? Sacalo del LEF (las coordenadas `RECT` de cada
-    `PIN`). Cuando tengas tu primer floorplan funcionando (P5), verificalo
+    `PIN`). Cuando tengas tu primer floorplan funcionando (P6), verificalo
     en la GUI: hacé zoom sobre una macro y seleccioná algunos pines.
   - ¿Y los pines de alimentación (`vccd1`, `vssd1`)? ¿En qué capa de metal
     están?
-- **P5.** Proponé una ubicación para las 6 macros. Tiene que cumplir:
+- **P6.** Proponé una ubicación para las 6 macros. Tiene que cumplir:
   - Todas dentro del **core** (no del die: entre ambos hay un margen).
   - Sin solaparse, y con un **canal** entre macros vecinas para que pasen
     cables y la PDN. Justificá el ancho que elegiste.
   - Los pines del puerto usado **mirando hacia la zona de celdas
     estándar**, eligiendo la orientación de cada macro.
+  - Sin tapar los **pines del footprint**: las celdas que se conectan a
+    cada pin del borde tienen que poder ubicarse cerca de él.
 
   Corré `make floorplan` hasta que funcione. Incluí tu `macro_placement.cfg`,
   una captura de la GUI y una explicación de la orientación de cada macro.
@@ -180,7 +217,8 @@ y abrí la corrida en la GUI.
 **Qué se debe lograr:** entender la estructura del core sobre la que se van a
 ubicar las celdas.
 
-- **P6.** Completá esta tabla y comparala con lo que calculaste en P1:
+- **P7.** Completá esta tabla y compará la utilización con la que
+  esperabas en P1:
 
   | Ítem | Valor |
   | :--- | ----: |
@@ -196,7 +234,7 @@ ubicar las celdas.
   verificá que filas × alto del site = alto del core, y sites × ancho del site
   = ancho del core. ¿Qué relación hay entre la altura del site y la altura de
   las celdas que viste en el TP1 (P17)?
-- **P7.** Celdas físicas. En la GUI (`STEP=07`), activá las filas (`Rows`) y
+- **P8.** Celdas físicas. En la GUI (`STEP=08`), activá las filas (`Rows`) y
   buscá las celdas endcap y tap (son instancias: seleccioná alguna y mirá su
   celda en el Inspector).
   - ¿Qué función cumple cada tipo? ¿Por qué hacen falta en una tecnología
@@ -205,8 +243,8 @@ ubicar las celdas.
     con el área de celdas estándar del diseño.
   - Medí con la regla la distancia entre dos tap consecutivas de una misma
     fila. ¿De qué regla de diseño crees que sale?
-  - ¿Qué pasó con las filas en la zona de las macros (paso 6)?
-- **P8.** Red de alimentación. En la GUI (`STEP=09`), mirando una capa por
+  - ¿Qué pasó con las filas en la zona de las macros (paso 7)?
+- **P9.** Red de alimentación. En la GUI (`STEP=10`), mirando una capa por
   vez en `Layers`:
   - Identificá los *rails* de las filas, los *straps* verticales y los
     horizontales. ¿En qué capa de metal está cada uno? ¿Cada cuántos µm se
@@ -237,7 +275,7 @@ y abrila en la GUI.
 **Qué se debe lograr:** saber leer el resultado de un placement y relacionar
 cada número con lo que se ve en el layout.
 
-- **P9.** Completá esta tabla:
+- **P10.** Completá esta tabla:
 
   | Métrica | Valor |
   | :------ | ----: |
@@ -251,20 +289,21 @@ cada número con lo que se ve en el layout.
   | Congestión después del placement global | |
 
   ¿Por qué la utilización total y la de celdas estándar son tan distintas?
-  ¿Qué dice eso sobre el tamaño del die que eligió la herramienta? ¿La
+  ¿Qué dice eso sobre el tamaño de die que elegiste en el footprint? ¿La
   cantidad de celdas estándar cambió respecto del netlist del TP1? ¿Por qué?
-- **P10.** Ubicación de las celdas.
+- **P11.** Ubicación de las celdas.
   - Incluí una captura del placement completo y otra del mapa de calor
     `Placement Density`. ¿Las celdas se reparten uniformemente en el área
     libre? ¿Dónde se concentran?
-  - Mirá dónde quedaron los **pines de entrada/salida** del chip (paso 13).
-    ¿En qué bordes están? ¿Cómo influyen, junto con los pines de las macros,
-    en dónde se agruparon las celdas?
+  - Los **pines de entrada/salida** vienen del footprint (paso 2). ¿Cómo
+    influyen, junto con los pines de las macros, en dónde se agruparon las
+    celdas? Elegí un bus (por ejemplo `instr_addr_o`) y mirá dónde quedaron
+    las celdas conectadas a sus pines.
   - Con el **Hierarchy Browser**, ubicá dónde quedaron al menos tres módulos
     del CPU (por ejemplo el banco de registros, la caché `icache` y la ALU).
     ¿Tiene sentido su ubicación respecto de las macros y de los pines?
-- **P11.** Placement global y detallado. Abrí la misma corrida con
-  `STEP=16` y con `STEP=22` y hacé zoom sobre una misma zona chica.
+- **P12.** Placement global y detallado. Abrí la misma corrida con
+  `STEP=13` y con `STEP=19` y hacé zoom sobre una misma zona chica.
   - ¿Qué diferencia ves entre las celdas después del placement global y
     después del detallado? ¿Qué condiciones cumple un placement *legal*?
   - Según `placement.md`, ¿cuánto se infló el área de celdas en el placement
@@ -275,7 +314,7 @@ cada número con lo que se ve en el layout.
 **Qué se debe lograr:** relacionar la reparación eléctrica y los cables
 estimados con lo que viste en el TP1.
 
-- **P12.** Reparación del diseño (`placement.md`, sección *Design repair*).
+- **P13.** Reparación del diseño (`placement.md`, sección *Design repair*).
   - ¿Qué insertó o modificó la herramienta? Explicá para qué sirve cada
     tipo: buffers de entrada, de salida, de reparación, celdas *tie*,
     cambios de tamaño.
@@ -283,7 +322,7 @@ estimados con lo que viste en el TP1.
     del placement (`timing.md`, misma esquina `tt`). Relacionalo con tu
     respuesta a la P15 del TP1: ¿por qué recién ahora se pueden reparar?
   - Quedan algunas violaciones de max slew. ¿En qué pines están? (Buscalas
-    en `<run>/23-openroad-stamidpnr-1/checks.rpt`.) Buscá el límite
+    en `<run>/20-openroad-stamidpnr-1/checks.rpt`.) Buscá el límite
     `max_transition` de esos pines en el `.lib` de la SRAM y compáralo con
     los slews típicos de tu diseño. ¿Te parece un límite razonable? ¿Qué
     harías al respecto en un diseño real?
@@ -291,7 +330,7 @@ estimados con lo que viste en el TP1.
     el Inspector. En el TP1 ambos manejaban miles de pines. ¿Cuál de los dos
     fue bufferizado y cuál no? ¿Por qué la herramienta deja uno sin tocar, y
     qué etapa se va a encargar de él?
-- **P13.** Timing (`timing.md`). Completá:
+- **P14.** Timing (`timing.md`). Completá:
 
   | Esquina `tt` | TP1 (pre-PnR) | Después del placement |
   | :----------- | ------------: | --------------------: |
@@ -308,7 +347,7 @@ estimados con lo que viste en el TP1.
   - En el camino crítico de ahora, elegí dos nets: uno corto y uno que una
     celdas lejanas. ¿Cuánto retardo agrega cada uno (la diferencia de tiempo
     entre el pin de salida que lo maneja y el pin de entrada siguiente)?
-- **P14.** En la GUI, pestaña **Timing Report** → `Update`, seleccioná el
+- **P15.** En la GUI, pestaña **Timing Report** → `Update`, seleccioná el
   peor camino de setup. Incluí una captura con el camino dibujado sobre el
   layout. ¿Qué recorrido hace en el chip? Medí con la regla la distancia
   entre su inicio y su fin. ¿Hay alguna forma de acortarlo cambiando el
@@ -319,7 +358,8 @@ estimados con lo que viste en el TP1.
 ## Ejercicio 3: Experimentos de floorplan
 
 Cada experimento cambia **una sola cosa** respecto de tu corrida de referencia
-(`NAME=ref`). Corré cada uno con un `NAME` distinto y, al final, armá la
+(`NAME=ref`); el footprint es siempre el mismo. Corré cada uno con un
+`NAME` distinto y, al final, armá la
 tabla comparativa con `make compare`. Para cada experimento, incluí una
 captura de la GUI y explicá **cada diferencia** respecto de la referencia
 (wirelength, congestión, buffers, violaciones, slack), no solo si empeoró o
@@ -331,24 +371,18 @@ entre experimentos: las diferencias importantes están en el **wirelength**, la
 diferencia de wirelength de algunos puntos porcentuales es significativa: se
 traduce en área de cables, potencia y, a frecuencias más altas, en timing.
 
-- **P15. Orientación de las macros.** Cambiá la orientación de una fila de
+- **P16. Orientación de las macros.** Cambiá la orientación de una fila de
   macros para que los pines del puerto usado miren **hacia el borde del
   die** en vez de hacia las celdas (`NAME=pines_afuera`).
-- **P16. Ubicación de las macros.** Ubicá las macros en el **centro** del
+- **P17. Ubicación de las macros.** Ubicá las macros en el **centro** del
   core, en dos filas, de modo que las celdas estándar queden repartidas
   arriba y abajo de ellas (`NAME=centro`). ¿Qué pasa con los caminos que
   van de las SRAM a los pines del chip y a la lógica del CPU?
-- **P17. Densidad objetivo.** Agregá `"PL_TARGET_DENSITY_PCT"` a
+- **P18. Densidad objetivo.** Agregá `"PL_TARGET_DENSITY_PCT"` a
   `config.json` con valores 30 y 90 (`NAME=dens30`, `NAME=dens90`). ¿Qué
   valor usó la herramienta en la referencia (`placement.md`)? Compará los
   mapas de densidad y de congestión. ¿Qué compromiso hay entre una densidad
   alta y una baja?
-- **P18. Tamaño del die.** Pasá a `FP_SIZING = absolute` y fijá el die con
-  `DIE_AREA`, reubicando las macros para que entren. Achicá el die en pasos
-  (`NAME=die_<ancho>x<alto>`) hasta que el flujo falle o la congestión pase
-  de 1.2. ¿Cuál fue el die más chico que funcionó y con qué utilización?
-  ¿Qué limitó el tamaño mínimo: el área de las macros, el de las celdas o la
-  congestión? ¿Por qué querría alguien un die más chico?
 
 ---
 

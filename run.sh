@@ -7,8 +7,8 @@
 #   ./run.sh librelane --help
 #
 # This directory is mounted at /work (the working directory), so use
-# paths relative to it. If TP1_DIR is set, that directory (the TP1 project)
-# is mounted read-only at /tp1. If DISPLAY is set, the X11 socket is shared
+# paths relative to it. If TP1_RUN is set, that directory (a TP1 run) is
+# mounted read-only at /tp1_run. If DISPLAY is set, the X11 socket is shared
 # so GUIs (OpenROAD, KLayout) open on the host's screen.
 set -euo pipefail
 
@@ -23,8 +23,8 @@ TTY_FLAGS=(-i)
 [ -t 0 ] && [ -t 1 ] && TTY_FLAGS=(-it)
 
 EXTRA=()
-if [ -n "${TP1_DIR:-}" ]; then
-  EXTRA+=(-v "$(cd "$TP1_DIR" && pwd):/tp1:ro")
+if [ -n "${TP1_RUN:-}" ]; then
+  EXTRA+=(-v "$(cd "$TP1_RUN" && pwd):/tp1_run:ro")
 fi
 if [ -n "${DISPLAY:-}" ] && [ -d /tmp/.X11-unix ]; then
   # The container runs with the host uid, so `xhost +SI:localuser:$USER`

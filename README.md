@@ -4,11 +4,13 @@ Este proyecto es la **segunda parte** del trabajo práctico. Toma el netlist del
 CPU [Ibex] que sintetizaste en la primera parte (repositorio `up-tp1`) y hace
 la primera mitad de la implementación física con [LibreLane] y OpenROAD:
 
-1. **Floorplan:** tamaño del chip (die y core), filas de celdas estándar,
-   ubicación de las macros de SRAM, celdas de borde y de pozo (endcap y
-   tap) y red de alimentación (PDN).
-2. **Placement:** ubicación de los pines de entrada/salida y de las ~15.000
-   celdas estándar, reparación eléctrica del diseño (buffers) y análisis de
+0. **Footprint:** el área del bloque y la ubicación de sus pines de
+   entrada/salida. Es una entrada del floorplan: se genera antes, con un
+   script.
+1. **Floorplan:** a partir del footprint, el core, las filas de celdas
+   estándar, la ubicación de las macros de SRAM, las celdas de borde y de
+   pozo (endcap y tap) y la red de alimentación (PDN).
+2. **Placement:** ubicación de las celdas estándar, reparación eléctrica del diseño (buffers) y análisis de
    timing con los cables estimados a partir del placement.
 
 **Acá no se sintetiza:** el netlist se importa del TP1. Las etapas que siguen
@@ -41,8 +43,8 @@ cd up-tp2
 └── up-tp2/     este proyecto
 ```
 
-Si lo ubicás en otro lado, indicá dónde está el TP1 con `TP1=<ruta>` al
-importar (sección 2).
+Si lo ubicás en otro lado no pasa nada: al importar (sección 2.1) se indica
+la ruta a la corrida del TP1.
 
 ### 1.2 La interfaz gráfica
 
@@ -62,15 +64,22 @@ which xhost            # si no existe: sudo apt install x11-xserver-utils
 
 ---
 
-## 2. Importar el netlist del TP1
+## 2. Netlist y footprint
+
+Antes del floorplan hacen falta dos cosas: el netlist sintetizado (del TP1) y
+el footprint del bloque.
+
+### 2.1 Importar el netlist del TP1
+
+Elegí la corrida del Ibex del TP1 (una que haya llegado al STA, hecha con
+`make sta DESIGN=ibex`) e indicá **su directorio**:
 
 ```bash
-make import-tp1 TP1=../up-tp1
+ls ../up-tp1/designs/ibex/runs/
+make import-tp1 TP1_RUN=../up-tp1/designs/ibex/runs/hd_2026-10-15_20-31-10
 ```
 
-Esto busca en `../up-tp1/designs/ibex/runs/` la corrida `hd_*` más reciente
-que haya llegado al STA (`make sta DESIGN=ibex` en el TP1) y copia a
-`designs/ibex/tp1/`:
+Esto copia a `designs/ibex/tp1/`:
 
 | Archivo              | Qué es                                                     |
 | :------------------- | :--------------------------------------------------------- |
@@ -80,12 +89,43 @@ que haya llegado al STA (`make sta DESIGN=ibex` en el TP1) y copia a
 | `reports/`           | los reportes del TP1 (`qor.md`, `area.md`, `timing.md`, ...), para comparar |
 | `SOURCE`             | nombre de la corrida del TP1 de la que salió                |
 
-Para usar otra corrida: `make import-tp1 TP1=../up-tp1 FROM=hd_2026-10-01_17-17-44`.
-
-La corrida tiene que tener la **configuración original** del TP1 (biblioteca
-`hd`, período de 100 ns); si no, el import falla y lo avisa. Si borraste las
+La corrida tiene que tener la **configuración original** del TP1 (diseño
+`ibex_top`, biblioteca `hd`, período de 100 ns); si no, el import falla y lo avisa. Si borraste las
 corridas del TP1, volvé a correr `make sta DESIGN=ibex` allá (es la única vez
 que se sintetiza).
+
+### 2.2 Generar el footprint
+
+El **footprint** es el rectángulo que ocupa el bloque (el die) y la ubicación
+de sus pines. En un chip real lo define quien arma el chip completo, antes
+del PnR de cada bloque. Acá lo genera `scripts/footprint.py` a partir de un
+área y una relación de aspecto:
+
+```bash
+make footprint AREA=2700000 ASPECT=1    # die de 2.7 mm², cuadrado
+```
+
+- `AREA` es el área del **die** en µm² y `ASPECT` su alto / ancho (por
+  defecto 1). Las dimensiones se redondean a µm enteros.
+- Los pines son los puertos del netlist importado (928 bits). Se reparten
+  **uniformemente** alrededor del die, en el orden en que están declarados
+  en el netlist, así que cada bus queda junto. El recorrido es antihorario
+  desde la esquina inferior izquierda: borde sur de izquierda a derecha,
+  este de abajo hacia arriba, norte de derecha a izquierda y oeste de arriba
+  hacia abajo. Cada borde recibe una cantidad de pines proporcional a su
+  largo, dejando 20 µm libres en cada esquina.
+- Los pines de los bordes sur y norte están en `met2` y los de este y oeste en
+  `met3`, sobre los tracks de ruteo de cada capa.
+
+Genera dos cosas:
+
+| Archivo | Qué contiene |
+| :------ | :----------- |
+| `designs/ibex/footprint.def` | un DEF con solo el die (`DIEAREA`) y los pines (`PINS`) |
+| `designs/ibex/config.json`   | `DIE_AREA` actualizado con el tamaño del die |
+
+Si volvés a correr `make footprint`, se reescriben los dos. Todos los
+`make floorplan` y `make place` usan el footprint que esté en ese momento.
 
 ---
 
@@ -98,9 +138,10 @@ Todo está en `designs/ibex/`:
 ```
 designs/ibex/
 ├── config.json           configuración de LibreLane (ver abajo)
+├── footprint.def         el footprint: die y pines (sección 2.2)
 ├── constraints.sdc       restricciones de timing (las del TP1 + clock ideal)
 ├── macro_placement.cfg   ubicación de las macros de SRAM: la completás vos
-├── tp1/                  lo importado del TP1 (sección 2)
+├── tp1/                  lo importado del TP1 (sección 2.1)
 └── runs/                 las corridas
 ```
 
@@ -108,16 +149,15 @@ Lo importante de `config.json`:
 
 | Variable | Qué controla |
 | :------- | :----------- |
-| `FP_SIZING` | `relative`: el die se calcula a partir de la utilización; `absolute`: se fija con `DIE_AREA` |
-| `FP_CORE_UTIL` | utilización buscada (área de instancias / área del core), en %, con `FP_SIZING = relative` |
-| `FP_ASPECT_RATIO` | alto / ancho del core, con `FP_SIZING = relative` |
-| `DIE_AREA` | `[x0, y0, x1, y1]` del die en µm, con `FP_SIZING = absolute` |
+| `FP_SIZING` | `absolute`: el die es el de `DIE_AREA` (con `relative`, LibreLane lo calcularía a partir de una utilización) |
+| `DIE_AREA` | `[x0, y0, x1, y1]` del die en µm; la escribe `make footprint` |
+| `FP_DEF_TEMPLATE` | el footprint (`footprint.def`): de ahí se copian los pines |
 | `MACROS` | las vistas de la macro de SRAM (`.lef`, `.lib`, `.gds`) y sus 6 instancias |
 | `MACRO_PLACEMENT_CFG` | el archivo con la ubicación de cada macro (`macro_placement.cfg`) |
 | `PDN_MACRO_CONNECTIONS` | a qué nets de alimentación se conectan los pines de alimentación de las macros |
 | `PL_TARGET_DENSITY_PCT` | (no está; se puede agregar) densidad objetivo del placement global, en % |
 | `VERILOG_FILES` | LibreLane la exige, pero acá apunta al netlist importado y no se usa: no hay síntesis |
-| `meta` | agrega un STA después del placement detallado (ver 3.2) |
+| `meta` | cambia los pasos del flujo: aplica el footprint justo después del floorplan, saca los pasos que ubicarían los pines automáticamente y agrega un STA después del placement detallado (ver 3.2) |
 
 Las variables que no aparecen toman el valor por defecto de LibreLane. La
 lista completa, con su descripción, está en la documentación:
@@ -143,20 +183,19 @@ subdirectorio numerado de la corrida):
 
 | Paso | Directorio | Qué hace |
 | ---: | :--------- | :------- |
-| 1 | `01-openroad-floorplan` | crea el die, el core y las filas de sites |
-| 5 | `05-odb-manualmacroplacement` | ubica las macros según `macro_placement.cfg` |
-| 6 | `06-openroad-cutrows` | corta las filas donde hay macros |
-| 7 | `07-openroad-tapendcapinsertion` | inserta celdas endcap (bordes de fila) y tap (contactos de pozo) |
-| 9 | `09-openroad-generatepdn` | genera la red de alimentación (PDN) |
-| 12 | `12-openroad-globalplacementskipio` | placement global preliminar, para saber dónde conviene cada pin |
-| 13 | `13-openroad-ioplacement` | ubica los pines de entrada/salida en el borde del die |
-| 16 | `16-openroad-globalplacement` | placement global: posición aproximada de cada celda |
-| 19 | `19-openroad-stamidpnr` | STA después del placement global |
-| 20 | `20-openroad-repairdesignpostgpl` | reparación: buffers y cambios de tamaño para max slew / max cap / fanout |
-| 22 | `22-openroad-detailedplacement` | placement detallado (legalización): cada celda en un site de una fila, sin solapamientos |
-| 23 | `23-openroad-stamidpnr-1` | STA final, con los cables estimados del placement |
+| 1 | `01-openroad-floorplan` | crea el die (`DIE_AREA`), el core y las filas de sites |
+| 2 | `02-odb-applydeftemplate` | copia los pines del footprint (`footprint.def`) |
+| 6 | `06-odb-manualmacroplacement` | ubica las macros según `macro_placement.cfg` |
+| 7 | `07-openroad-cutrows` | corta las filas donde hay macros |
+| 8 | `08-openroad-tapendcapinsertion` | inserta celdas endcap (bordes de fila) y tap (contactos de pozo) |
+| 10 | `10-openroad-generatepdn` | genera la red de alimentación (PDN) |
+| 13 | `13-openroad-globalplacement` | placement global: posición aproximada de cada celda |
+| 16 | `16-openroad-stamidpnr` | STA después del placement global |
+| 17 | `17-openroad-repairdesignpostgpl` | reparación: buffers y cambios de tamaño para max slew / max cap / fanout |
+| 19 | `19-openroad-detailedplacement` | placement detallado (legalización): cada celda en un site de una fila, sin solapamientos |
+| 20 | `20-openroad-stamidpnr-1` | STA final, con los cables estimados del placement |
 
-`make floorplan` termina en el paso 10, después de la PDN. Si un paso falla,
+`make floorplan` termina en el paso 11, después de la PDN. Si un paso falla,
 el error está al final de la salida y en `<corrida>/<paso>/*.log`.
 
 ### 3.3 El SDC
@@ -220,13 +259,13 @@ Algunas definiciones:
 ```bash
 make gui                         # última corrida, en su último estado
 make gui RUN=pl_centro_...       # otra corrida
-make gui RUN=pl_... STEP=09      # la corrida tal como quedó después del paso 9
+make gui RUN=pl_... STEP=10      # la corrida tal como quedó después del paso 10
 ```
 
 `STEP` es el número de dos dígitos del paso (tabla de la sección 3.2). Si ese
 paso no modifica el layout, se abre el último layout anterior. Por ejemplo:
-`STEP=01` (die y filas), `STEP=05` (macros), `STEP=09` (PDN), `STEP=16`
-(placement global), `STEP=22` (placement detallado).
+`STEP=02` (die, filas y pines), `STEP=06` (macros), `STEP=10` (PDN), `STEP=13`
+(placement global), `STEP=19` (placement detallado).
 
 La GUI abre el layout con las bibliotecas `.lib` y el SDC ya cargados, así que
 también se puede analizar timing.
@@ -265,7 +304,8 @@ Para cerrar la GUI, cerrá la ventana (o `exit` en la consola Tcl).
 
 | Comando                          | Qué hace                                              |
 | :------------------------------- | :---------------------------------------------------- |
-| `make import-tp1 TP1=<dir>`      | Importa el netlist del Ibex del TP1 (`FROM=<corrida>` opcional) |
+| `make import-tp1 TP1_RUN=<dir>`  | Importa el netlist de una corrida del Ibex del TP1    |
+| `make footprint AREA=<µm²>`      | Genera el footprint: die y pines (`ASPECT=` opcional, alto/ancho) |
 | `make floorplan`                 | Floorplan: die, filas, macros, tap/endcap, PDN        |
 | `make place`                     | Floorplan + placement + STA                           |
 | `make gui`                       | Abre una corrida en la GUI de OpenROAD (`RUN=`, `STEP=`) |
@@ -281,8 +321,9 @@ y `place`.
 
 | Problema                                          | Solución |
 | :------------------------------------------------ | :------- |
-| `the TP1 netlist was not imported yet`            | `make import-tp1 TP1=<directorio del TP1>` |
-| `no hd run with STA`                              | En el TP1: `make sta DESIGN=ibex` |
+| `the TP1 netlist was not imported yet`            | `make import-tp1 TP1_RUN=<corrida del TP1>` |
+| `there is no footprint yet`                       | `make footprint AREA=<µm²> ASPECT=<alto/ancho>` |
+| `has no pre-PnR STA step`                         | Elegí otra corrida, o en el TP1: `make sta DESIGN=ibex` |
 | `[PDN-0235] Design has unplaced macros`           | Faltan macros en `macro_placement.cfg` (o están comentadas) |
 | `Declared macros not instantiated in design`      | Hay un nombre de instancia mal escrito en `macro_placement.cfg` |
 | `DISPLAY is not set`                              | Corré `make gui` desde una terminal del escritorio, no por SSH |

@@ -260,6 +260,8 @@ class Run:
         how = (f"relative: FP_CORE_UTIL = {cfg.get('FP_CORE_UTIL')}%, "
                f"FP_ASPECT_RATIO = {cfg.get('FP_ASPECT_RATIO')}"
                if cfg.get("FP_SIZING") == "relative" else f"absolute: DIE_AREA = {cfg.get('DIE_AREA')}")
+        if self.cfg.get("FP_DEF_TEMPLATE"):
+            how += f"; I/O pins from {Path(self.cfg['FP_DEF_TEMPLATE']).name}"
         out = [
             self.header("Floorplan report"),
             f"Sizing: {how}.",

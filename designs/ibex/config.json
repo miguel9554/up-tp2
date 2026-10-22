@@ -3,6 +3,11 @@
         "version": 3,
         "flow": "Classic",
         "substituting_steps": {
+            "Odb.ApplyDEFTemplate": null,
+            "+OpenROAD.Floorplan": "Odb.ApplyDEFTemplate",
+            "OpenROAD.GlobalPlacementSkipIO": null,
+            "OpenROAD.IOPlacement": null,
+            "Odb.CustomIOPlacement": null,
             "+OpenROAD.DetailedPlacement": "OpenROAD.STAMidPNR"
         }
     },
@@ -63,7 +68,7 @@
     "PDN_MACRO_CONNECTIONS": [
         ".*u_sram VPWR VGND vccd1 vssd1"
     ],
-    "FP_SIZING": "relative",
-    "FP_CORE_UTIL": 50,
-    "FP_ASPECT_RATIO": 1
+    "FP_SIZING": "absolute",
+    "DIE_AREA": null,
+    "FP_DEF_TEMPLATE": "dir::footprint.def"
 }

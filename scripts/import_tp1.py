@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Import the synthesized netlist of a TP1 run, so PnR starts from it.
 
-Usage: import_tp1.py <tp1_project_dir> <design> [run_tag]
+Usage: import_tp1.py <run_dir> <design> <run_name>
 
-<tp1_project_dir> is the TP1 project as seen from the container (/tp1).
-Without run_tag, the most recent hd_* run of <design> with a finished
-pre-PnR STA is used. Everything is copied to designs/<design>/tp1/:
+<run_dir> is the TP1 run directory as seen from the container (/tp1_run),
+<run_name> its name on the host (the mount point hides it). The run must have
+a finished pre-PnR STA (`make sta` in TP1). Everything is copied to
+designs/<design>/tp1/:
 
     tp1/<design>.nl.v     gate-level netlist (input of the floorplan)
     tp1/<design>.h.json   JSON header (power pins of the macros)
@@ -24,48 +25,38 @@ STA_STEP = "openroad-staprepnr"
 EXPECTED = {"STD_CELL_LIBRARY": "sky130_fd_sc_hd", "CLOCK_PERIOD": 100}
 
 
-def sta_state(run: Path):
-    states = sorted(run.glob(f"*-{STA_STEP}/state_out.json"))
-    return states[-1] if states else None
-
-
 def main():
-    if len(sys.argv) not in (3, 4):
+    if len(sys.argv) != 4:
         sys.exit(__doc__)
-    tp1, design = Path(sys.argv[1]), sys.argv[2]
-    runs_dir = tp1 / "designs" / design / "runs"
-    if not runs_dir.is_dir():
-        sys.exit(f"error: {runs_dir} does not exist. Is TP1 the TP1 project directory?")
+    run, design, name = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]).name
 
-    if len(sys.argv) == 4:
-        run = runs_dir / sys.argv[3]
-        if not run.is_dir():
-            sys.exit(f"error: run {sys.argv[3]} not found in {runs_dir}")
-    else:
-        runs = sorted((r for r in runs_dir.glob("hd_*") if sta_state(r)),
-                      key=lambda r: r.name)
-        if not runs:
-            sys.exit(f"error: no hd run with STA in {runs_dir}. "
-                     f"Run `make sta DESIGN={design}` in the TP1 project.")
-        run = runs[-1]
-
-    state_file = sta_state(run)
-    if state_file is None:
-        sys.exit(f"error: {run.name} has no pre-PnR STA step: use a run made with `make sta`")
-    state = json.loads(state_file.read_text())
+    if not (run / "resolved.json").is_file():
+        sys.exit(f"error: {name} is not a LibreLane run directory (no resolved.json)")
+    states = sorted(run.glob(f"*-{STA_STEP}/state_out.json"))
+    if not states:
+        sys.exit(f"error: {name} has no pre-PnR STA step: use a run made with "
+                 f"`make sta DESIGN={design}` in TP1")
+    state = json.loads(states[-1].read_text())
     resolved = json.loads((run / "resolved.json").read_text())
-    for key, want in EXPECTED.items():
+
+    config = json.loads((Path("designs") / design / "config.json").read_text())
+    expected = dict(EXPECTED, DESIGN_NAME=config["DESIGN_NAME"])
+    for key, want in expected.items():
         if resolved.get(key) != want:
-            sys.exit(f"error: {run.name} has {key} = {resolved.get(key)}, expected {want}. "
-                     f"Use a run with the original TP1 configuration (FROM=<run>).")
+            sys.exit(f"error: {name} has {key} = {resolved.get(key)}, expected {want}. "
+                     f"Use a run with the original TP1 configuration.")
 
     dest = Path("designs") / design / "tp1"
     shutil.rmtree(dest, ignore_errors=True)
     dest.mkdir(parents=True)
 
     def localize(path: str) -> str:
-        """Copy a TP1 file (path inside the TP1 container, /work/...) to dest."""
-        src = tp1 / Path(path).relative_to("/work")
+        """Copy a file of the run (path inside the TP1 container,
+        /work/designs/<design>/runs/<name>/...) to dest."""
+        parts = Path(path).parts
+        if name not in parts:
+            sys.exit(f"error: {path} is not inside run {name}")
+        src = run.joinpath(*parts[parts.index(name) + 1:])
         shutil.copy(src, dest / src.name)
         return f"/work/{dest}/{src.name}"
 
@@ -74,9 +65,9 @@ def main():
     (dest / "state.json").write_text(json.dumps(new_state, indent=2) + "\n")
     if (run / "reports").is_dir():
         shutil.copytree(run / "reports", dest / "reports")
-    (dest / "SOURCE").write_text(f"{run.name}\n")
+    (dest / "SOURCE").write_text(f"{name}\n")
 
-    print(f"Imported TP1 run {run.name} into {dest}/")
+    print(f"Imported TP1 run {name} into {dest}/")
 
 
 if __name__ == "__main__":
