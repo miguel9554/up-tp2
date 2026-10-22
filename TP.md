@@ -97,10 +97,10 @@ bordes, en el orden en que están declarados en el netlist (sección 2.2 del
 
 **Qué hacer:**
 
-1. Importá el netlist del TP1:
+1. Importá el netlist de una corrida `hd` del TP1:
 
    ```bash
-   make import-tp1 TP1_RUN=../up-tp1/designs/ibex/runs/<corrida hd del TP1>
+   make import-tp1 TP1_RUN=../up-tp1/designs/ibex/runs/<corrida>
    ```
 
 2. Calculá el área del die (P1) y generá el footprint:
@@ -334,9 +334,12 @@ cada número con lo que se ve en el layout.
     número de `-highlight` (de 0 a 7) es un grupo con un color distinto:
 
     ```tcl
-    select -type Net -name "*register_file_i*" -highlight 0   ;# banco de registros
-    select -type Net -name "*if_stage_i*"      -highlight 1   ;# fetch + icache
-    select -type Net -name "*ex_block_i*"      -highlight 2   ;# ALU y multiplicador
+    # banco de registros
+    select -type Net -name "*register_file_i*" -highlight 0
+    # etapa de fetch, con la icache
+    select -type Net -name "*if_stage_i*" -highlight 1
+    # bloque de ejecución: ALU y multiplicador
+    select -type Net -name "*ex_block_i*" -highlight 2
     ```
 
     Cada comando imprime cuántos nets seleccionó. El Inspector permite
@@ -345,9 +348,12 @@ cada número con lo que se ve en el layout.
     `load_store_unit_i`. Para borrar el resaltado y la selección:
 
     ```tcl
-    gui::clear_highlights 0      ;# borra el resaltado del grupo 0
-    gui::clear_highlights -1     ;# borra el resaltado de todos los grupos
-    gui::clear_selections        ;# vacía la selección (el Inspector)
+    # borra el resaltado del grupo 0
+    gui::clear_highlights 0
+    # borra el resaltado de todos los grupos
+    gui::clear_highlights -1
+    # vacía la selección (el Inspector)
+    gui::clear_selections
     ```
 
     Tené en cuenta que así ves los cables con nombre del módulo (en
